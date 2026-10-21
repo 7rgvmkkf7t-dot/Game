@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101014">
+  <title>五子棋・靜心對弈</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101014;
+      --panel: #19191f;
+      --panel-soft: #202027;
+      --line: #303039;
+      --muted: #92929f;
+      --text: #f4f3f7;
+      --accent: #c6a6ff;
+      --accent-strong: #a879ff;
+      --wood: #d9b886;
+      --wood-dark: #b98b57;
+      --cell: min(5.75vw, 34px);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: radial-gradient(ellipse at 50% -18%, #282333 0, var(--bg) 50%, #0d0d11 100%);
+      display: grid;
+      place-items: center;
+      padding: 30px 18px;
+    }
+    .app { width: min(100%, 760px); }
+    header { text-align: center; margin-bottom: 26px; }
+    .eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; }
+    h1 { margin: 9px 0 5px; font-size: clamp(27px, 5vw, 38px); letter-spacing: -.045em; }
+    .subtitle { color: var(--muted); font-size: 14px; margin: 0; }
+    .game-card {
+      background: linear-gradient(145deg, rgba(31,31,39,.96), rgba(22,22,28,.98));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 22px;
+      padding: clamp(16px, 4vw, 30px);
+      box-shadow: 0 25px 80px #0007, inset 0 1px #ffffff0a;
+    }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    .turn-card { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .stone { width: 34px; height: 34px; border-radius: 50%; flex: none; box-shadow: inset 2px 3px 5px #ffffff24, inset -3px -4px 7px #0008, 0 3px 8px #0006; }
+    .stone.black { background: radial-gradient(circle at 35% 30%, #55545d, #17171c 67%); }
+    .stone.white { background: radial-gradient(circle at 35% 30%, #fff, #d7d5dc 70%); }
+    .turn-copy { min-width: 0; }
+    .turn-label { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .turn-status { font-weight: 650; font-size: 15px; margin-top: 2px; }
+    .turn-status.winner { color: var(--accent); }
+    button { font: inherit; }
+    .restart {
+      border: 1px solid #ffffff19; color: var(--text); background: #ffffff08;
+      border-radius: 11px; padding: 10px 14px; cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: background .18s, border-color .18s, transform .18s; white-space: nowrap;
+    }
+    .restart:hover { background: #ffffff12; border-color: #ffffff35; }
+    .restart:active { transform: scale(.97); }
+    .board-wrap { position: relative; overflow: auto; border-radius: 14px; padding: 11px; background: #17171c; border: 1px solid #ffffff0a; }
+    .board {
+      width: max-content; display: grid; grid-template-columns: repeat(15, var(--cell));
+      grid-template-rows: repeat(15, var(--cell)); margin: auto; padding: 0;
+      background-color: var(--wood); border: 1px solid var(--wood-dark);
+      box-shadow: 0 6px 18px #0005;
+      touch-action: manipulation; user-select: none;
+    }
+    .intersection {
+      width: var(--cell); height: var(--cell); padding: 0; border: 0; position: relative;
+      background: transparent; cursor: pointer; display: grid; place-items: center;
+    }
+    .intersection::before, .intersection::after { content: ""; position: absolute; background: #6b4c2a9c; pointer-events: none; }
+    .intersection::before { width: 1px; height: 100%; left: 50%; top: 0; }
+    .intersection::after { height: 1px; width: 100%; top: 50%; left: 0; }
+    .intersection:hover:not(.occupied)::before, .intersection:hover:not(.occupied)::after { background: #422e1a; }
+    .intersection:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: -4px; z-index: 2; }
+    .intersection .piece { width: 82%; height: 82%; border-radius: 50%; position: relative; z-index: 1; pointer-events: none; }
+    .piece.black { background: radial-gradient(circle at 35% 28%, #63616b, #19191e 64%); box-shadow: inset 1px 2px 4px #ffffff22, 1px 3px 5px #0008; }
+    .piece.white { background: radial-gradient(circle at 35% 28%, #fff, #dbd9df 70%); box-shadow: inset 1px 2px 3px #fff, 1px 3px 5px #0007; }
+    .piece.last::after { content: ""; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-strong); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+    .intersection.winning .piece { outline: 3px solid var(--accent); outline-offset: 1px; }
+    .board-note { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; padding: 13px 2px 0; }
+    .board-note span:last-child { color: #73737e; }
+    .rules { display: flex; justify-content: center; gap: 22px; margin-top: 19px; color: var(--muted); font-size: 12px; }
+    .rules span { display: inline-flex; align-items: center; gap: 7px; }
+    .mini { width: 10px; height: 10px; border-radius: 50%; }
+    .mini.black { background: #25252b; border: 1px solid #666; }
+    .mini.white { background: #e7e6ea; }
+    .toast { position: fixed; inset: auto 16px 24px; margin: auto; width: fit-content; padding: 10px 16px; color: #1b1426; background: var(--accent); border-radius: 999px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 30px #0008; opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 430px) {
+      :root { --cell: min(5.75vw, 25px); }
+      body { padding: 22px 10px; }
+      .game-card { padding: 14px 10px; border-radius: 18px; }
+      .board-wrap { padding: 8px 3px; }
+      .rules { gap: 14px; }
+      .restart { padding: 9px 11px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="eyebrow">A quiet match</div>
+      <h1>五子棋</h1>
+      <p class="subtitle">落子無悔，連成五子即可獲勝。</p>
+    </header>
+    <section class="game-card" aria-label="五子棋遊戲">
+      <div class="toolbar">
+        <div class="turn-card" aria-live="polite">
+          <div id="turnStone" class="stone black" aria-hidden="true"></div>
+          <div class="turn-copy"><div class="turn-label" id="turnLabel">現在輪到</div><div class="turn-status" id="status">黑棋先行</div></div>
+        </div>
+        <button class="restart" id="restart" type="button">↻　重新開始</button>
+      </div>
+      <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="15 乘 15 五子棋棋盤"></div></div>
+      <div class="board-note"><span id="moveCount">第 1 手</span><span>15 × 15 棋盤</span></div>
+      <div class="rules" aria-label="棋子說明"><span><i class="mini black"></i>黑棋</span><span><i class="mini white"></i>白棋</span><span>先連成五子獲勝</span></div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    (() => {
+      const SIZE = 15;
+      const boardEl = document.getElementById('board');
+      const statusEl = document.getElementById('status');
+      const turnLabel = document.getElementById('turnLabel');
+      const turnStone = document.getElementById('turnStone');
+      const moveCount = document.getElementById('moveCount');
+      const toast = document.getElementById('toast');
+      let grid, current, moves, finished, lastMove, winningCells, toastTimer;
+
+      function startGame() {
+        grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+        current = 1; moves = 0; finished = false; lastMove = null; winningCells = [];
+        boardEl.replaceChildren();
+        for (let row = 0; row < SIZE; row++) {
+          for (let col = 0; col < SIZE; col++) {
+            const cell = document.createElement('button');
+            cell.type = 'button'; cell.className = 'intersection';
+            cell.setAttribute('role', 'gridcell');
+            cell.setAttribute('aria-label', `第 ${row + 1} 行，第 ${col + 1} 列，空位`);
+            cell.dataset.row = row; cell.dataset.col = col;
+            cell.addEventListener('click', () => play(row, col));
+            boardEl.append(cell);
+          }
+        }
+        renderStatus();
+        moveCount.textContent = '第 1 手';
+      }
+
+      function play(row, col) {
+        if (finished || grid[row][col]) return;
+        grid[row][col] = current; moves++; lastMove = [row, col];
+        const cell = boardEl.children[row * SIZE + col];
+        cell.classList.add('occupied');
+        cell.setAttribute('aria-label', `第 ${row + 1} 行，第 ${col + 1} 列，${current === 1 ? '黑棋' : '白棋'}`);
+        const piece = document.createElement('span');
+        piece.className = `piece ${current === 1 ? 'black' : 'white'} last`;
+        cell.append(piece);
+        if (checkWin(row, col)) {
+          finished = true;
+          winningCells.forEach(([r, c]) => boardEl.children[r * SIZE + c].classList.add('winning'));
+          turnLabel.textContent = '對局結束';
+          statusEl.textContent = `${current === 1 ? '黑棋' : '白棋'}獲勝！`;
+          statusEl.classList.add('winner');
+          turnStone.className = `stone ${current === 1 ? 'black' : 'white'}`;
+          showToast(`${current === 1 ? '黑棋' : '白棋'}連成五子，獲勝！`);
+        } else if (moves === SIZE * SIZE) {
+          finished = true;
+          turnLabel.textContent = '對局結束'; statusEl.textContent = '平手';
+          showToast('棋盤已滿，平手！');
+        } else {
+          current = 3 - current;
+          renderStatus();
+        }
+        moveCount.textContent = `第 ${moves} 手`;
+      }
+
+      function checkWin(row, col) {
+        const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+        for (const [dr, dc] of directions) {
+          const line = [[row, col]];
+          for (const sign of [-1, 1]) {
+            let r = row + dr * sign, c = col + dc * sign;
+            while (r >= 0 && r < SIZE && c >= 0 && c < SIZE && grid[r][c] === current) {
+              if (sign < 0) line.unshift([r, c]); else line.push([r, c]);
+              r += dr * sign; c += dc * sign;
+            }
+          }
+          if (line.length >= 5) { winningCells = line; return true; }
+        }
+        return false;
+      }
+
+      function renderStatus() {
+        turnLabel.textContent = '現在輪到';
+        statusEl.textContent = current === 1 ? '黑棋先行' : '白棋回合';
+        statusEl.classList.remove('winner');
+        turnStone.className = `stone ${current === 1 ? 'black' : 'white'}`;
+      }
+
+      function showToast(message) {
+        toast.textContent = message; toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+      }
+
+      document.getElementById('restart').addEventListener('click', () => {
+        startGame(); showToast('新的一局開始了');
+      });
+      startGame();
+    })();
+  </script>
+</body>
+</html>
